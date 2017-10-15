@@ -1,0 +1,183 @@
+CREATE TABLE Users (
+	user_id NUMBER,
+	first_name VARCHAR2(100) NOT NULL,
+	last_name VARCHAR2(100) NOT NULL,
+	year_of_birth INTEGER,
+	month_of_birth INTEGER,
+	day_of_birth INTEGER,
+	gender VARCHAR2(100),
+	PRIMARY KEY (user_id)
+);
+
+CREATE TABLE Friends (
+	user1_id NUMBER,
+	user2_id NUMBER,
+	PRIMARY KEY(user1_id, user2_id),
+	FOREIGN KEY (user1_id) REFERENCES Users(user_id),
+	FOREIGN KEY (user2_id) REFERENCES Users(user_id)
+);
+
+CREATE TRIGGER friendship_trigger
+	BEFORE INSERT ON FRIENDS
+		FOR EACH ROW
+			DECLARE 
+				i NUMBER;
+			BEGIN
+				IF :new.user1_id > :new.user2_id THEN
+					i := :new.user1_id;
+					:new.user1_id := :new.user2_id;
+					:new.user2_id :=i;
+				END IF;
+			END;
+/
+
+CREATE TABLE Cities (
+	city_id INTEGER,
+	city_name VARCHAR2(100),
+	state_name VARCHAR2(100),
+	country_name VARCHAR2(100),
+	PRIMARY KEY (city_id)
+);
+
+CREATE SEQUENCE cityCounter
+	START WITH 1
+	INCREMENT BY 1;
+
+CREATE TRIGGER cityTrigger
+	BEFORE INSERT ON Cities
+		FOR EACH ROW
+			BEGIN
+				SELECT cityCounter.NEXTVAL INTO :NEW.city_id FROM DUAL;
+			END;
+/
+
+CREATE TABLE User_current_city (
+	user_id NUMBER,
+	current_city_id INTEGER,
+	PRIMARY KEY (user_id),
+	FOREIGN KEY (user_id) REFERENCES Users,
+	FOREIGN KEY (current_city_id) REFERENCES Cities(city_id)
+);
+
+CREATE TABLE User_hometown_city (
+	user_id NUMBER,
+	hometown_city_id INTEGER,
+	PRIMARY KEY (user_id),
+	FOREIGN KEY (user_id) REFERENCES Users,
+	FOREIGN KEY (hometown_city_id) REFERENCES Cities(city_id)
+);
+
+CREATE TABLE Message (
+	message_id NUMBER,
+	sender_id NUMBER,
+	receiver_id NUMBER,
+	message_content VARCHAR2(2000) NOT NULL,
+	sent_time TIMESTAMP NOT NULL,
+	PRIMARY KEY (message_id),
+	FOREIGN KEY (sender_id) REFERENCES Users(user_id),
+	FOREIGN KEY (receiver_id) REFERENCES Users(user_id)
+);
+
+CREATE TABLE Programs (
+	program_id INTEGER,
+	institution VARCHAR2(100),
+	concentration VARCHAR2(100),
+	degree VARCHAR2(100),
+	PRIMARY KEY (program_id),
+	UNIQUE (institution, concentration, degree)
+);
+
+CREATE SEQUENCE programCounter
+	START WITH 1
+	INCREMENT BY 1;
+
+CREATE TRIGGER programTrigger
+	BEFORE INSERT ON Programs
+		FOR EACH ROW
+			BEGIN
+				SELECT programCounter.NEXTVAL INTO :NEW.program_id FROM DUAL;
+			END;
+/
+
+CREATE TABLE Education (
+	user_id NUMBER,
+	program_id INTEGER,
+	program_year INTEGER NOT NULL,
+	PRIMARY KEY (user_id, program_id),
+	FOREIGN KEY (user_id) REFERENCES Users,
+	FOREIGN KEY (program_id) REFERENCES Programs
+);
+
+CREATE TABLE User_events (
+	event_id NUMBER,
+	event_creator_id NUMBER,
+	event_name VARCHAR2(100) NOT NULL,
+	event_tagline VARCHAR2(100),
+	event_description VARCHAR2(100),
+	event_host VARCHAR2(100) NOT NULL,
+	event_type VARCHAR2(100) NOT NULL,
+	event_subtype VARCHAR2(100) NOT NULL,
+	event_address VARCHAR2(2000),
+	event_city_id INTEGER,
+	event_start_time TIMESTAMP NOT NULL,
+	event_end_time TIMESTAMP NOT NULL,
+	PRIMARY KEY (event_id),
+	FOREIGN KEY (event_creator_id) REFERENCES Users(user_id),
+	FOREIGN KEY (event_city_id) REFERENCES Cities(city_id)
+);
+
+CREATE TABLE Participants (
+	event_id NUMBER,
+	user_id NUMBER,
+	confirmation VARCHAR2(100),
+	CONSTRAINT chk_confirmation 
+	CHECK(confirmation IN('ATTENDING', 'UNSURE', 'DECLINED', 'NOT-REPLIED')),
+	PRIMARY KEY(event_id, user_id),
+	FOREIGN KEY(event_id) REFERENCES User_events,
+	FOREIGN KEY(user_id) REFERENCES Users
+);
+
+CREATE TABLE Albums (
+	album_id NUMBER,
+	album_owner_id NUMBER,
+	album_name VARCHAR2(100) NOT NULL,
+	album_created_time TIMESTAMP NOT NULL,
+	album_modified_time TIMESTAMP,
+	album_link VARCHAR2(2000) NOT NULL,
+	album_visibility VARCHAR2(100) NOT NULL,
+	CHECK (UPPER(album_visibility) = 'EVERYONE'
+		OR UPPER(album_visibility) = 'FRIENDS'
+		OR UPPER(album_visibility) = 'FRIENDS_OF_FRIENDS'
+		OR UPPER(album_visibility) = 'MYSELF'
+		OR UPPER(album_visibility) = 'CUSTOM'),
+	cover_photo_id NUMBER NOT NULL,
+	PRIMARY KEY(album_id),
+	FOREIGN KEY(album_owner_id) REFERENCES Users(user_id)
+);
+
+CREATE TABLE Photos (
+	photo_id NUMBER,
+	album_id NUMBER,
+	photo_caption VARCHAR2(2000),
+	photo_created_time TIMESTAMP NOT NULL,
+	photo_modified_time TIMESTAMP,
+	photo_link VARCHAR2(2000) NOT NULL,
+	PRIMARY KEY(photo_id),
+	FOREIGN KEY(album_id) REFERENCES Albums
+);
+
+ALTER TABLE Albums
+	ADD CONSTRAINT cover_photo
+	FOREIGN KEY(cover_photo_id) REFERENCES PHOTOS(photo_id) DEFERRABLE;
+
+
+CREATE TABLE Tags (
+	tag_photo_id NUMBER,
+	tag_subject_id NUMBER,
+	tag_created_time TIMESTAMP NOT NULL,
+	tag_x NUMBER NOT NULL,
+	tag_y NUMBER NOT NULL,
+	PRIMARY KEY(tag_photo_id, tag_subject_id),
+	FOREIGN KEY(tag_photo_id) REFERENCES Photos(photo_id),
+	FOREIGN KEY(tag_subject_id) REFERENCES Users(user_id)
+);
